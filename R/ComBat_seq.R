@@ -31,13 +31,13 @@ ComBat_seq <- function(counts, batch, group=NULL, covar_mod=NULL, full_mod=TRUE,
   }
 
   ## Remove genes with only 0 counts in any batch
-  keep_lst <- lapply(levels(batch), function(b){
-    which(apply(counts[, batch==b], 1, function(x){!all(x==0)}))
-  })
-  keep <- Reduce(intersect, keep_lst)
-  rm <- setdiff(1:nrow(counts), keep)
-  countsOri <- counts
-  counts <- counts[keep, ]
+  #keep_lst <- lapply(levels(batch), function(b){
+  #  which(apply(counts[, batch==b], 1, function(x){!all(x==0)}))
+  #})
+  #keep <- Reduce(intersect, keep_lst)
+  #rm <- setdiff(1:nrow(counts), keep)
+  #countsOri <- counts
+  #counts <- counts[keep, ]
 
   # require bioconductor 3.7, edgeR 3.22.1
   dge_obj <- DGEList(counts=counts)
@@ -191,13 +191,13 @@ ComBat_seq <- function(counts, batch, group=NULL, covar_mod=NULL, full_mod=TRUE,
                                                           new_mu=new_mu, new_phi=new_phi)
   }
 
-  #dimnames(adjust_counts) <- dimnames(counts)
-  #return(adjust_counts)
+  dimnames(adjust_counts) <- dimnames(counts)
+  return(adjust_counts)
 
   ## Add back genes with only 0 counts in any batch (so that dimensions won't change)
-  adjust_counts_whole <- matrix(NA, nrow=nrow(countsOri), ncol=ncol(countsOri))
-  dimnames(adjust_counts_whole) <- dimnames(countsOri)
-  adjust_counts_whole[keep, ] <- adjust_counts
-  adjust_counts_whole[rm, ] <- countsOri[rm, ]
-  return(adjust_counts_whole)
+  #adjust_counts_whole <- matrix(NA, nrow=nrow(countsOri), ncol=ncol(countsOri))
+  #dimnames(adjust_counts_whole) <- dimnames(countsOri)
+  #adjust_counts_whole[keep, ] <- adjust_counts
+  #adjust_counts_whole[rm, ] <- countsOri[rm, ]
+  #return(adjust_counts_whole)
 }
