@@ -13,12 +13,16 @@ bool is_array_equal_to(const T* x, const int n, const bool rep, const T& v) {
     }
 }
 
-SEXP fit_one_group (SEXP y, SEXP offsets, SEXP disp, SEXP weights, SEXP max_iterations, SEXP tolerance, SEXP beta) {
+SEXP fit_one_group (SEXP y, SEXP offsets, SEXP disp, SEXP weights, SEXP max_iterations,
+                    SEXP tolerance, SEXP beta, SEXP lambda_reg, SEXP alpha_reg) {
     BEGIN_RCPP
     any_numeric_matrix counts(y);
     const int num_tags=counts.get_nrow();
     const int num_libs=counts.get_ncol();
     std::vector<double> current(num_libs);
+
+    double lamb=check_numeric_scalar(lambda_reg, "reg strength lambda");
+    double alpha=check_numeric_scalar(alpha_reg, "reg control alpha");
 
     // Setting up assorted input matrices.
     compressed_matrix allo=check_CM_dims(offsets, num_tags, num_libs, "offset", "count");
@@ -91,7 +95,9 @@ SEXP fit_one_group (SEXP y, SEXP offsets, SEXP disp, SEXP weights, SEXP max_iter
             out_conv[tag]=true;
         } else {
             // Otherwise going through NR iterations.
-            std::pair<double, bool> out=glm_one_group(num_libs, current.data(), optr, dptr, wptr, maxit, tol, Beta[tag]);
+            std::pair<double, bool> out=glm_one_group(num_libs, current.data(), optr,
+                                                      dptr, wptr, maxit, tol, Beta[tag],
+                                                      lamb, alpha);
             out_beta[tag]=out.first;
             out_conv[tag]=out.second;
         }

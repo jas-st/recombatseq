@@ -11,7 +11,8 @@ double get_sign(double x) {
 }
 
 std::pair<double,bool> glm_one_group(int nlibs, const double* counts, const double* offset,
-        const double* disp, const double* weights, int maxit, double tolerance, double cur_beta) {
+        const double* disp, const double* weights, int maxit, double tolerance, double cur_beta,
+        double lambda_reg, double alpha_reg) {
     /* Setting up initial values for beta as the log of the mean of the ratio of counts to offsets.
  	 * This is the exact solution for the gamma distribution (which is the limit of the NB as
  	 * the dispersion goes to infinity. However, if cur_beta is not NA, then we assume it's good.
@@ -43,8 +44,8 @@ std::pair<double,bool> glm_one_group(int nlibs, const double* counts, const doub
         return std::make_pair(R_NegInf, true);
     }
 
-	double alpha = 0.5; // balance between L1 and L2 (0 = only L2, 1 = only L1)
-  double lambda = 1; // regularization strength
+  //double alpha = 0.5; // balance between L1 and L2 (0 = only L2, 1 = only L1)
+  //double lambda = 1; // regularization strength
 
 	// Newton-Raphson iterations to converge to mean.
   bool has_converged=false;
@@ -58,8 +59,8 @@ std::pair<double,bool> glm_one_group(int nlibs, const double* counts, const doub
 		}
 
 		// penalty
-		dl-=lambda * (alpha * get_sign(cur_beta) + (1 - alpha) * cur_beta);
-		info+=lambda * (1 - alpha);
+	  dl-=lambda_reg * (alpha_reg * get_sign(cur_beta) + (1 - alpha_reg) * cur_beta);
+		info+=lambda_reg * (1 - alpha_reg);
 
 		const double step=dl/(info);
 		cur_beta+=step;

@@ -1,5 +1,5 @@
 #include "glm.h"
-    
+
 const double one_millionth=std::pow(10, -6.0);
 const double supremely_low_value=std::pow(10, -13.0), ridiculously_low_value=std::pow(10, -100.0);
 
@@ -28,37 +28,40 @@ void glm_levenberg::autofill(const double* beta, const double* offset, double* m
 
 // Constructors for the GLM object.
 
-glm_levenberg::glm_levenberg(int nl, int nc, const double* d, int mi, double tol) : nlibs(nl), ncoefs(nc), maxit(mi), tolerance(tol), 
-        design(d), working_weights(nlibs), deriv(nlibs), xtwx(ncoefs*ncoefs), xtwx_copy(ncoefs*ncoefs), dl(ncoefs), dbeta(ncoefs), 
+glm_levenberg::glm_levenberg(int nl, int nc, const double* d, int mi, double tol,
+                             double lambda_reg, double alpha_reg) :
+  nlibs(nl), ncoefs(nc), maxit(mi), tolerance(tol), lambda_reg(lambda_reg), alpha_reg(alpha_reg),
+        design(d), working_weights(nlibs), deriv(nlibs), xtwx(ncoefs*ncoefs), xtwx_copy(ncoefs*ncoefs), dl(ncoefs), dbeta(ncoefs),
         info(0), mu_new(nlibs), beta_new(ncoefs) {}
 
-// Now, for the actual fit implementation. 
+// Now, for the actual fit implementation.
 
 const char uplo='U';
 const int nrhs=1;
 
-int glm_levenberg::fit(const double* y, const double* offset, const double* disp, 
+int glm_levenberg::fit(const double* y, const double* offset, const double* disp,
 		const double* w, double* mu, double* beta) {
 	// We expect 'beta' to be supplied. We then check the maximum value of the counts.
     double ymax=0;
-    for (int lib=0; lib<nlibs; ++lib) { 
+    for (int lib=0; lib<nlibs; ++lib) {
 		const double& count=y[lib];
 		if (count>ymax) { ymax=count; }
- 	}	
+ 	}
     dev=0;
     iter=0;
 	failed=false;
 
-    // If we start off with all entries at zero, there's really no point continuing. 
+    // If we start off with all entries at zero, there's really no point continuing.
     if (ymax<low_value) {
         std::fill(beta, beta+ncoefs, NA_REAL);
         std::fill(mu, mu+nlibs, 0);
         return 0;
     }
-    
+
 	// Otherwise, we compute 'mu' based on 'beta'. Returning if there are no coefficients!
 	autofill(beta, offset, mu);
 	dev=nb_deviance(y, mu, w, disp);
+	//std::cout << " Deviance: " << dev << std::endl;
     if (ncoefs==0) {
         return 0;
     }
@@ -69,15 +72,15 @@ int glm_levenberg::fit(const double* y, const double* offset, const double* disp
 
 		/* Here we set up the matrix XtWX i.e. the Fisher information matrix. X is the design matrix and W is a diagonal matrix
  		 * with the working weights for each observation (i.e. library). The working weights are part of the first derivative of
- 		 * the log-likelihood for a given coefficient, multiplied by any user-specified weights. When multiplied by two covariates 
- 		 * in the design matrix, you get the Fisher information (i.e. variance of the log-likelihood) for that pair. This takes 
- 		 * the role of the second derivative of the log-likelihood. The working weights are formed by taking the reciprocal of the 
+ 		 * the log-likelihood for a given coefficient, multiplied by any user-specified weights. When multiplied by two covariates
+ 		 * in the design matrix, you get the Fisher information (i.e. variance of the log-likelihood) for that pair. This takes
+ 		 * the role of the second derivative of the log-likelihood. The working weights are formed by taking the reciprocal of the
  		 * product of the variance (in terms of the mean) and the square of the derivative of the link function.
  		 *
- 		 * We also set up the actual derivative of the log likelihoods in 'dl'. This is done by multiplying each covariate by the 
+ 		 * We also set up the actual derivative of the log likelihoods in 'dl'. This is done by multiplying each covariate by the
  		 * difference between the mu and observation and dividing by the variance and derivative of the link function. This is
  		 * then summed across all observations for each coefficient. The aim is to solve (XtWX)(dbeta)=dl for 'dbeta'. As XtWX
- 		 * is the second derivative, and dl is the first, you can see that we are effectively performing a multivariate 
+ 		 * is the second derivative, and dl is the first, you can see that we are effectively performing a multivariate
  		 * Newton-Raphson procedure with 'dbeta' as the step.
  		 */
         for (int lib=0; lib<nlibs; ++lib) {
@@ -87,31 +90,38 @@ int glm_levenberg::fit(const double* y, const double* offset, const double* disp
             deriv[lib]=(y[lib]-cur_mu)/denom*w[lib];
         }
 
+      //lambda_reg - regularisation strength
+      //alpha - controls (ridge/lasso); 0 - ridge, 1 - lasso
+
         compute_xtwx(nlibs, ncoefs, design, working_weights.data(), xtwx.data());
+      for (int col = 0; col < ncoefs; ++col) {
+        xtwx[col * ncoefs + col] += lambda_reg*(1-alpha_reg);
+      }
 
         const double* dcopy=design;
         auto xtwxIt=xtwx.begin();
         for (int coef=0; coef<ncoefs; ++coef, dcopy+=nlibs, xtwxIt+=ncoefs) {
             dl[coef]=std::inner_product(deriv.begin(), deriv.end(), dcopy, 0.0);
+            dl[coef]-=lambda_reg*(alpha_reg * std::copysign(1.0, beta[coef]) + (1-alpha_reg)*beta[coef]);
             const double& cur_val=*(xtwxIt+coef);
             if (cur_val>max_info) { max_info=cur_val; }
         }
         if (iter==1) {
             lambda=max_info*one_millionth;
-            if (lambda < supremely_low_value) { lambda=supremely_low_value; } 
+            if (lambda < supremely_low_value) { lambda=supremely_low_value; }
         }
 
-        /* Levenberg/Marquardt damping reduces step size until the deviance increases or no 
+        /* Levenberg/Marquardt damping reduces step size until the deviance increases or no
          * step can be found that increases the deviance. In short, increases in the deviance
          * are enforced to avoid problems with convergence.
-         */ 
+         */
         int lev=0;
         bool low_dev=false;
         while (++lev) {
 			do {
-             	/* We need to set up copies as the decomposition routine overwrites the originals, and 
- 				 * we want the originals in case we don't like the latest step. For efficiency, we only 
-	 			 * refer to the upper triangular for the XtWX copy (as it should be symmetrical). We also add 
+             	/* We need to set up copies as the decomposition routine overwrites the originals, and
+ 				 * we want the originals in case we don't like the latest step. For efficiency, we only
+	 			 * refer to the upper triangular for the XtWX copy (as it should be symmetrical). We also add
 	 			 * 'lambda' to the diagonals. This reduces the step size as the second derivative is increased.
         	     */
                 auto xtwxIt=xtwx.begin(), xtwxcIt=xtwx_copy.begin();
@@ -124,34 +134,34 @@ int glm_levenberg::fit(const double* y, const double* offset, const double* disp
                 F77_CALL(dpotrf)(&uplo, &ncoefs, xtwx_copy.data(), &ncoefs, &info FCONE);
                 if (info!=0) {
                     /* If it fails, it MUST mean that the matrix is singular due to numerical imprecision
-                     * as all the diagonal entries of the XtWX matrix must be positive. This occurs because of 
-                     * fitted values being exactly zero; thus, the coefficients attempt to converge to negative 
-                     * infinity. This generally forces the step size to be larger (i.e. lambda lower) in order to 
-                     * get to infinity faster (which is impossible). Low lambda leads to numerical instability 
-                     * and effective singularity. To solve this, we actually increase lambda; this avoids code breakage 
+                     * as all the diagonal entries of the XtWX matrix must be positive. This occurs because of
+                     * fitted values being exactly zero; thus, the coefficients attempt to converge to negative
+                     * infinity. This generally forces the step size to be larger (i.e. lambda lower) in order to
+                     * get to infinity faster (which is impossible). Low lambda leads to numerical instability
+                     * and effective singularity. To solve this, we actually increase lambda; this avoids code breakage
                      * to give the other coefficients a chance to converge. Failure of convergence for the zero-
-                     * fitted values isn't a problem as the change in deviance from small --> smaller coefficients isn't 
+                     * fitted values isn't a problem as the change in deviance from small --> smaller coefficients isn't
                      * that great when the true value is negative inifinity.
                      */
-                    lambda*=10;
+                    lambda*=2;
                 	if (lambda <= 0) { lambda=ridiculously_low_value; } // Just to make sure it actually increases.
-                } else { 
-                    break; 
+                } else {
+                    break;
                 }
             } while (1);
 
             std::copy(dl.begin(), dl.end(), dbeta.begin());
             F77_CALL(dpotrs)(&uplo, &ncoefs, &nrhs, xtwx_copy.data(), &ncoefs, dbeta.data(), &ncoefs, &info FCONE);
-            if (info!=0) { 
+            if (info!=0) {
                 throw std::runtime_error("solution using the Cholesky decomposition failed");
             }
 
             // Updating beta and the means. 'dbeta' stores 'Y' from the solution of (X*VX)Y=dl, corresponding to a NR step.
-            for (int coef=0; coef<ncoefs; ++coef) { 
-                beta_new[coef]=beta[coef]+dbeta[coef]; 
+            for (int coef=0; coef<ncoefs; ++coef) {
+                beta_new[coef]=beta[coef]+dbeta[coef];
+                //beta_new[coef] = std::max(0.0, std::abs(beta_new[coef]) - 0.5) * std::copysign(1.0, beta_new[coef]);
             }
             autofill(beta_new.data(), offset, mu_new.data());
-
             /* Checking if the deviance has decreased or if it's too small to care about. Either case is good
              * and means that we'll be using the updated fitted values and coefficients. Otherwise, if we have
              * to repeat the inner loop, then we want to do so from the original values (as we'll be scaling
@@ -163,23 +173,23 @@ int glm_levenberg::fit(const double* y, const double* offset, const double* disp
             if (dev_new <= dev || low_dev) {
                 std::copy(beta_new.begin(), beta_new.end(), beta);
                 std::copy(mu_new.begin(), mu_new.end(), mu);
-                dev=dev_new; 
-                break; 
+                dev=dev_new;
+                break;
             }
-            
+
             // Increasing lambda, to increase damping. Again, we have to make sure it's not zero.
             lambda*=2;
             if (lambda <= 0) { lambda=ridiculously_low_value; }
 
             // Excessive damping; steps get so small that it's pointless to continue.
-            if (lambda/max_info > 1/supremely_low_value) { 
-            	failed=1; 
-            	break; 
+            if (lambda/max_info > 1/supremely_low_value) {
+            	failed=1;
+            	break;
             }
-        } 
+        }
 
-        /* Terminating if we failed, if divergence from the exact solution is acceptably low 
-         * (cross-product of dbeta with the log-likelihood derivative) or if the actual deviance 
+        /* Terminating if we failed, if divergence from the exact solution is acceptably low
+         * (cross-product of dbeta with the log-likelihood derivative) or if the actual deviance
          * of the fit is acceptably low.
          */
         if (failed) { break; }
@@ -188,8 +198,8 @@ int glm_levenberg::fit(const double* y, const double* offset, const double* disp
         if (divergence < tolerance) { break; }
 
         /* If we quit the inner levenberg loop immediately and survived all the break conditions above, that means that deviance is decreasing
- 		 * substantially. Thus, we need larger steps to get there faster. To do so, we decrease the damping factor. Note that this only applies 
- 		 * if we didn't decrease the damping factor in the inner levenberg loop, as that would indicate that we need to slow down. 
+ 		 * substantially. Thus, we need larger steps to get there faster. To do so, we decrease the damping factor. Note that this only applies
+ 		 * if we didn't decrease the damping factor in the inner levenberg loop, as that would indicate that we need to slow down.
          */
         if (lev==1) { lambda/=10; }
     }

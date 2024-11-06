@@ -3,14 +3,14 @@
 
 #include "utils.h"
 
-std::pair<double,bool> glm_one_group(int, const double*, const double*, 
-        const double*, const double*, int, double, double);
+std::pair<double,bool> glm_one_group(int, const double*, const double*,
+        const double*, const double*, int, double, double, double, double);
 
 void compute_xtwx(int, int, const double*, const double*, double*);
 
 class glm_levenberg {
 public:
-	glm_levenberg(int, int, const double*, int, double);
+	glm_levenberg(int, int, const double*, int, double, double, double);
 	int fit(const double*, const double*, const double*, const double*, double*, double*);
 
 	const bool& is_failure() const;
@@ -21,9 +21,11 @@ private:
 	const int ncoefs;
 	const int maxit;
 	const double tolerance;
+	const double lambda_reg;
+	const double alpha_reg;
 
     const double* design;
-    std::vector<double> working_weights, deriv, xtwx, xtwx_copy, dl, dbeta; 
+    std::vector<double> working_weights, deriv, xtwx, xtwx_copy, dl, dbeta;
     int info;
 
     std::vector<double> mu_new, beta_new;

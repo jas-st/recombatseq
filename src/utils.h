@@ -34,7 +34,7 @@ SEXP compute_apl (SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 
 SEXP exact_test_by_deviance(SEXP, SEXP, SEXP, SEXP, SEXP);
 
-SEXP fit_levenberg (SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP fit_levenberg (SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 
 SEXP get_levenberg_start (SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 
@@ -42,7 +42,7 @@ SEXP loess_by_col(SEXP, SEXP, SEXP, SEXP);
 
 SEXP maximize_interpolant(SEXP, SEXP);
 
-SEXP fit_one_group (SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP fit_one_group (SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 
 SEXP get_one_way_fitted (SEXP, SEXP, SEXP);
 
@@ -54,7 +54,7 @@ SEXP calculate_cpm_log (SEXP, SEXP, SEXP);
 
 SEXP calculate_cpm_raw (SEXP, SEXP);
 
-SEXP ave_log_cpm(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP ave_log_cpm(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 
 SEXP check_poisson_bound (SEXP, SEXP, SEXP);
 

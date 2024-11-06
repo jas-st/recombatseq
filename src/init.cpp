@@ -11,10 +11,12 @@ static const R_CallMethodDef all_call_entries[] = {
 	CALLDEF(compute_apl, 6),
 	CALLDEF(maximize_interpolant, 2),
 
-	CALLDEF(fit_one_group, 7),
+	CALLDEF(fit_levenberg, 10),
+	CALLDEF(get_levenberg_start, 6),
+	CALLDEF(fit_one_group, 9),
 	CALLDEF(get_one_way_fitted, 3),
 	CALLDEF(add_prior_count, 3),
-    CALLDEF(ave_log_cpm, 7),
+    CALLDEF(ave_log_cpm, 9),
 
 	{NULL, NULL, 0}
 };
