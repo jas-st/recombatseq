@@ -1,4 +1,7 @@
-dispCoxReidInterpolateTagwise <- function(y, design, offset=NULL, dispersion, trend=TRUE, AveLogCPM=NULL, min.row.sum=5, prior.df=10, span=0.3, grid.npts=11, grid.range=c(-6,6),weights=NULL)
+dispCoxReidInterpolateTagwise <- function(y, design, offset=NULL, dispersion, trend=TRUE,
+                                          AveLogCPM=NULL, min.row.sum=5, prior.df=10,
+                                          span=0.3, grid.npts=11, grid.range=c(-6,6),
+                                          weights=NULL, lambda_reg=0, alpha_reg=0)
 #	Estimate tagwise NB dispersions
 #	using weighted Cox-Reid Adjusted Profile-likelihood
 #	and cubic spline interpolation over a tagwise grid.
@@ -25,7 +28,7 @@ dispCoxReidInterpolateTagwise <- function(y, design, offset=NULL, dispersion, tr
 	offset <- expandAsMatrix(offset,dim(y))
 
 #	Check AveLogCPM
-	if(is.null(AveLogCPM)) AveLogCPM <- aveLogCPM(y,lib.size=lib.size)
+	if(is.null(AveLogCPM)) AveLogCPM <- aveLogCPM(y,lib.size=lib.size, lambda_reg=lambda_reg, alpha_reg=alpha_reg)
 
 #	Check dispersion
 	ldisp <- length(dispersion)
@@ -38,7 +41,9 @@ dispCoxReidInterpolateTagwise <- function(y, design, offset=NULL, dispersion, tr
 #	Apply min.row.sum and use input dispersion for small count tags
 	i <- (rowSums(y) >= min.row.sum)
 	if(any(!i)) {
-		if(any(i)) dispersion[i] <- Recall(y=y[i,,drop=FALSE],design=design,offset=offset[i,,drop=FALSE],dispersion=dispersion[i],AveLogCPM=AveLogCPM[i],grid.npts=grid.npts,min.row.sum=0,prior.df=prior.df,span=span,trend=trend,weights=weights[i,,drop=FALSE])
+		if(any(i)) dispersion[i] <- Recall(y=y[i,,drop=FALSE],design=design,offset=offset[i,,drop=FALSE],dispersion=dispersion[i],
+		                                   AveLogCPM=AveLogCPM[i],grid.npts=grid.npts,min.row.sum=0,prior.df=prior.df,span=span,trend=trend,
+		                                   weights=weights[i,,drop=FALSE],lambda_reg=lambda_reg,alpha_reg=alpha_reg)
 		return(dispersion)
 	}
 
@@ -48,7 +53,7 @@ dispCoxReidInterpolateTagwise <- function(y, design, offset=NULL, dispersion, tr
 	apl <- matrix(0, nrow=ntags, ncol=grid.npts)
 	for(i in 1:grid.npts){
 		spline.disp <- dispersion * 2^spline.pts[i]
-		apl[,i] <- adjustedProfileLik(spline.disp, y=y, design=design, offset=offset, weights=weights)
+		apl[,i] <- adjustedProfileLik(spline.disp, y=y, design=design, offset=offset, weights=weights, lambda_reg=lambda_reg, alpha_reg=alpha_reg)
 	}
 	if(trend) {
 		o <- order(AveLogCPM)

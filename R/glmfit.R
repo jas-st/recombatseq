@@ -3,7 +3,8 @@
 glmFit <- function(y, ...)
 UseMethod("glmFit")
 
-glmFit.DGEList <- function(y, design=NULL, dispersion=NULL, prior.count=0.125, start=NULL, ...)
+glmFit.DGEList <- function(y, design=NULL, dispersion=NULL, prior.count=0.125,
+                           start=NULL, lambda_reg=0, alpha_reg=0, ...)
 #	Created 11 May 2011.  Last modified 21 Nov 2018.
 {
 #	The design matrix defaults to the oneway layout defined by y$samples$group.
@@ -21,7 +22,9 @@ glmFit.DGEList <- function(y, design=NULL, dispersion=NULL, prior.count=0.125, s
 	offset <- getOffset(y)
 	if(is.null(y$AveLogCPM)) y$AveLogCPM <- aveLogCPM(y)
 
-	fit <- glmFit(y=y$counts,design=design,dispersion=dispersion,offset=offset,lib.size=NULL,weights=y$weights,prior.count=prior.count,start=start,...)
+	fit <- glmFit(y=y$counts,design=design,dispersion=dispersion,offset=offset,
+	              lib.size=NULL,weights=y$weights,prior.count=prior.count,start=start,
+	              lambda_reg=lambda_reg, alpha_reg=alpha_reg, ...)
 	fit$samples <- y$samples
 	fit$genes <- y$genes
 	fit$prior.df <- y$prior.df
@@ -29,14 +32,18 @@ glmFit.DGEList <- function(y, design=NULL, dispersion=NULL, prior.count=0.125, s
 	new("DGEGLM",fit)
 }
 
-glmFit.SummarizedExperiment <- function(y, design=NULL, dispersion=NULL, prior.count=0.125, start=NULL, ...)
+glmFit.SummarizedExperiment <- function(y, design=NULL, dispersion=NULL, prior.count=0.125,
+                                        start=NULL, lambda_reg=0, alpha_reg=0, ...)
 #	Created 19 March 2020.  Last modified 19 March 2020.
 {
 	y <- SE2DGEList(y)
-	glmFit.DGEList(y, design=design, dispersion=dispersion, prior.count=prior.count, start=start, ...)
+	glmFit.DGEList(y, design=design, dispersion=dispersion, prior.count=prior.count,
+	               start=start, lambda_reg=lambda_reg, alpha_reg=alpha_reg, ...)
 }
 
-glmFit.default <- function(y, design=NULL, dispersion=NULL, offset=NULL, lib.size=NULL, weights=NULL, prior.count=0.125, start=NULL, maxit=50, ...)
+glmFit.default <- function(y, design=NULL, dispersion=NULL, offset=NULL, lib.size=NULL,
+                           weights=NULL, prior.count=0.125, start=NULL, maxit=50,
+                           lambda_reg=0, alpha_reg=0, ...)
 #	Fit negative binomial generalized linear model for each transcript
 #	to a series of digital expression libraries
 #	Davis McCarthy, Gordon Smyth, Yunshun Chen, Aaron Lun
@@ -56,8 +63,8 @@ glmFit.default <- function(y, design=NULL, dispersion=NULL, offset=NULL, lib.siz
 	} else {
 		design <- as.matrix(design)
 		if(nrow(design) != nlib) stop("nrow(design) disagrees with ncol(y)")
-		ne <- nonEstimable(design)
-		if(!is.null(ne)) stop(paste("Design matrix not of full rank.  The following coefficients not estimable:\n", paste(ne, collapse = " ")))
+		#ne <- nonEstimable(design)
+		#if(!is.null(ne)) cat(paste("Design matrix not of full rank.  The following coefficients not estimable:\n", paste(ne, collapse = " ")))
 	}
 
 #	Check dispersion
@@ -96,11 +103,15 @@ glmFit.default <- function(y, design=NULL, dispersion=NULL, offset=NULL, lib.siz
 #	If the design is equivalent to a oneway layout, use a shortcut algorithm
 	group <- designAsFactor(design)
 	if(nlevels(group)==ncol(design)) {
-		fit <- mglmOneWay(y,design=design,group=group,dispersion=dispersion.mat,offset=offset,weights=weights,coef.start=start,maxit=maxit)
+		fit <- mglmOneWay(y,design=design,group=group,dispersion=dispersion.mat,offset=offset,
+		                  weights=weights,coef.start=start,maxit=maxit,lambda_reg=lambda_reg,
+		                  alpha_reg=alpha_reg)
 		fit$deviance <- nbinomDeviance(y=y,mean=fit$fitted.values,dispersion=dispersion.mat,weights=weights)
 		fit$method <- "oneway"
 	} else {
-		fit <- mglmLevenberg(y,design=design,dispersion=dispersion.mat,offset=offset,weights=weights,coef.start=start,maxit=250)
+		fit <- mglmLevenberg(y,design=design,dispersion=dispersion.mat,offset=offset,
+		                     weights=weights,coef.start=start,maxit=250,
+		                     lambda_reg=lambda_reg,alpha_reg=alpha_reg)
 		fit$method <- "levenberg"
 	}
 
@@ -110,7 +121,8 @@ glmFit.default <- function(y, design=NULL, dispersion=NULL, offset=NULL, lib.siz
 		fit$unshrunk.coefficients <- fit$coefficients
 		colnames(fit$unshrunk.coefficients) <- colnames(design)
 		rownames(fit$unshrunk.coefficients) <- rownames(y)
-		fit$coefficients <- predFC(y,design,offset=offset,dispersion=dispersion.mat,prior.count=prior.count,weights=weights,...)*log(2)
+		fit$coefficients <- predFC(y,design,offset=offset,dispersion=dispersion.mat,prior.count=prior.count,
+		                           weights=weights,lambda_reg=lambda_reg,alpha_reg=alpha_reg, ...)*log(2)
 	}
 	colnames(fit$coefficients) <- colnames(design)
 	rownames(fit$coefficients) <- rownames(y)
@@ -140,7 +152,7 @@ glmLRT <- function(glmfit,coef=ncol(glmfit$design),contrast=NULL)
 	}
 	if(is.null(glmfit$AveLogCPM)) glmfit$AveLogCPM <- aveLogCPM(glmfit)
 	nlibs <- ncol(glmfit)
-	
+
 #	Check design matrix
 	design <- as.matrix(glmfit$design)
 	nbeta <- ncol(design)
@@ -207,7 +219,7 @@ glmLRT <- function(glmfit,coef=ncol(glmfit$design),contrast=NULL)
 		row.names=rn
 	)
 	glmfit$counts <- NULL
-	glmfit$table <- tab 
+	glmfit$table <- tab
 	glmfit$comparison <- coef.name
 	glmfit$df.test <- df.test
 	new("DGELRT",unclass(glmfit))

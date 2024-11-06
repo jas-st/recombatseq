@@ -2,13 +2,17 @@
 #include "add_prior.h"
 #include "objects.h"
 
-SEXP ave_log_cpm(SEXP y, SEXP offset, SEXP prior, SEXP disp, SEXP weights, SEXP max_iterations, SEXP tolerance) {
+SEXP ave_log_cpm(SEXP y, SEXP offset, SEXP prior, SEXP disp, SEXP weights,
+                 SEXP max_iterations, SEXP tolerance, SEXP lambda_reg, SEXP alpha_reg) {
     BEGIN_RCPP
 
     any_numeric_matrix counts(y);
     const int num_tags=counts.get_nrow();
     const int num_libs=counts.get_ncol();
     std::vector<double> current(num_libs);
+
+    double lamb=check_numeric_scalar(lambda_reg, "reg strength lambda");
+    double alpha=check_numeric_scalar(alpha_reg, "reg control alpha");
 
     add_prior AP(prior, offset, true, true);
     check_AP_dims(AP, num_tags, num_libs, "count");
@@ -35,7 +39,8 @@ SEXP ave_log_cpm(SEXP y, SEXP offset, SEXP prior, SEXP disp, SEXP weights, SEXP 
         // Fitting a one-way layout.
         const double* dptr=alld.get_row(tag);
         const double* wptr=allw.get_row(tag);
-        auto fit=glm_one_group(num_libs, current.data(), offptr, dptr, wptr, maxit, tol, NA_REAL);
+        auto fit=glm_one_group(num_libs, current.data(), offptr, dptr, wptr,
+          maxit, tol, NA_REAL, lamb, alpha);
         output[tag]=(fit.first + LNmillion)/LNtwo;
     }
 

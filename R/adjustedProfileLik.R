@@ -1,4 +1,6 @@
-adjustedProfileLik <- function(dispersion, y, design, offset, weights=NULL, adjust=TRUE, start=NULL, get.coef=FALSE)
+adjustedProfileLik <- function(dispersion, y, design, offset, weights=NULL,
+                               adjust=TRUE, start=NULL, get.coef=FALSE,
+                               lambda_reg=0, alpha_reg=0)
 #	Tagwise Cox-Reid adjusted profile log-likelihoods for the dispersion.
 #	dispersion can be a scalar or a tagwise vector.
 #	Computationally, dispersion can also be a matrix, but the apl is still computed tagwise.
@@ -27,7 +29,8 @@ adjustedProfileLik <- function(dispersion, y, design, offset, weights=NULL, adju
 	weights <- .compressWeights(y, weights)
 
 #	Fit tagwise linear models
-	fit <- glmFit(y,design=design,dispersion=dispersion,offset=offset,prior.count=0,weights=weights,start=start)
+	fit <- glmFit(y,design=design,dispersion=dispersion,offset=offset,prior.count=0,
+	              weights=weights,start=start,lambda_reg=lambda_reg,alpha_reg=alpha_reg)
 	mu <- fit$fitted.values
 
 #	Check other inputs to C++ code

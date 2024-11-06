@@ -20,7 +20,8 @@
 #'
 
 ComBat_seq <- function(counts, batch, group=NULL, covar_mod=NULL, full_mod=TRUE,
-                       shrink=FALSE, shrink.disp=FALSE, gene.subset.n=NULL){
+                       shrink=FALSE, shrink.disp=FALSE, gene.subset.n=NULL,
+                       lambda_reg=0, alpha_reg=0){
   ########  Preparation  ########
   counts <- as.matrix(counts)
 
@@ -83,10 +84,10 @@ ComBat_seq <- function(counts, batch, group=NULL, covar_mod=NULL, full_mod=TRUE,
   ## Check if the design is confounded
   if(qr(design)$rank<ncol(design)){
     #if(ncol(design)<=(n_batch)){stop("Batch variables are redundant! Remove one or more of the batch variables so they are no longer confounded")}
-    if(ncol(design)==(n_batch+1)){stop("The covariate is confounded with batch! Remove the covariate and rerun ComBat-Seq")}
+    if(ncol(design)==(n_batch+1)){stop("The covariate is confounded with batch!\n")}
     if(ncol(design)>(n_batch+1)){
-      if((qr(design[,-c(1:n_batch)])$rank<ncol(design[,-c(1:n_batch)]))){stop('The covariates are confounded! Please remove one or more of the covariates so the design is not confounded')
-      }else{stop("At least one covariate is confounded with batch! Please remove confounded covariates and rerun ComBat-Seq")}}
+      if((qr(design[,-c(1:n_batch)])$rank<ncol(design[,-c(1:n_batch)]))){cat('The covariates are confounded!\n')
+      }else{stop("At least one covariate is confounded with batch!\n")}}
   }
 
   ## Check for missing values in count matrix
@@ -100,9 +101,9 @@ ComBat_seq <- function(counts, batch, group=NULL, covar_mod=NULL, full_mod=TRUE,
   disp_common <- sapply(1:n_batch, function(i){
     if((n_batches[i] <= ncol(design)-ncol(batchmod)+1) | qr(mod[batches_ind[[i]], ])$rank < ncol(mod)){
       # not enough residual degree of freedom
-      return(estimateGLMCommonDisp(counts[, batches_ind[[i]]], design=NULL, subset=nrow(counts)))
+      return(estimateGLMCommonDisp(counts[, batches_ind[[i]]], design=NULL, subset=nrow(counts), lambda_reg=lambda_reg, alpha_reg=alpha_reg))
     }else{
-      return(estimateGLMCommonDisp(counts[, batches_ind[[i]]], design=mod[batches_ind[[i]], ], subset=nrow(counts)))
+      return(estimateGLMCommonDisp(counts[, batches_ind[[i]]], design=mod[batches_ind[[i]], ], subset=nrow(counts), lambda_reg=lambda_reg, alpha_reg=alpha_reg))
     }
   })
 
@@ -113,7 +114,7 @@ ComBat_seq <- function(counts, batch, group=NULL, covar_mod=NULL, full_mod=TRUE,
       return(rep(disp_common[j], nrow(counts)))
     }else{
       return(estimateGLMTagwiseDisp(counts[, batches_ind[[j]]], design=mod[batches_ind[[j]], ],
-                                    dispersion=disp_common[j], prior.df=0))
+                                    dispersion=disp_common[j], prior.df=0, lambda_reg=lambda_reg, alpha_reg=alpha_reg))
     }
   })
   names(genewise_disp_lst) <- paste0('batch', levels(batch))
@@ -127,11 +128,11 @@ ComBat_seq <- function(counts, batch, group=NULL, covar_mod=NULL, full_mod=TRUE,
   ########  Estimate parameters from NB GLM  ########
   cat("Fitting the GLM model\n")
 
-  glm_f <- glmFit(dge_obj, design=design, dispersion=phi_matrix, prior.count=1e-4) #no intercept - nonEstimable; compute offset (library sizes) within function
+  glm_f <- glmFit(dge_obj, design=design, dispersion=phi_matrix, prior.count=1e-4, lambda_reg=lambda_reg, alpha_reg=alpha_reg) #no intercept - nonEstimable; compute offset (library sizes) within function
   alpha_g <- glm_f$coefficients[, 1:n_batch] %*% as.matrix(n_batches/n_sample) #compute intercept as batch-size-weighted average from batches
   new_offset <- t(vec2mat(getOffset(dge_obj), nrow(counts))) +   # original offset - sample (library) size
     vec2mat(alpha_g, ncol(counts))  # new offset - gene background expression # getOffset(dge_obj) is the same as log(dge_obj$samples$lib.size
-  glm_f2 <- glmFit.default(dge_obj$counts, design=design, dispersion=phi_matrix, offset=new_offset, prior.count=1e-4,maxit=51)
+  glm_f2 <- glmFit.default(dge_obj$counts, design=design, dispersion=phi_matrix, offset=new_offset, prior.count=1e-4,maxit=51, lambda_reg=lambda_reg, alpha_reg=alpha_reg)
   gamma_hat <- glm_f2$coefficients[, 1:n_batch]
   mu_hat <- glm_f2$fitted.values
   phi_hat <- do.call(cbind, genewise_disp_lst)

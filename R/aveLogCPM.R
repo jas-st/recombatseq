@@ -1,7 +1,8 @@
 aveLogCPM <- function(y, ...)
 UseMethod("aveLogCPM")
 
-aveLogCPM.DGEList <- function(y, normalized.lib.sizes=TRUE, prior.count=2, dispersion=NULL, ...)
+aveLogCPM.DGEList <- function(y, normalized.lib.sizes=TRUE, prior.count=2, dispersion=NULL,
+                              lambda_reg=0, alpha_reg=0, ...)
 #	log2(AveCPM)
 #	Gordon Smyth
 #	Created 11 March 2013.  Last modified 9 July 2017.
@@ -20,17 +21,20 @@ aveLogCPM.DGEList <- function(y, normalized.lib.sizes=TRUE, prior.count=2, dispe
 #	Should trended.dispersion or tagwise.dispersion be used instead of common.dispersion if available?
 	if(is.null(dispersion)) dispersion <- y$common.dispersion
 
-	aveLogCPM(y$counts,lib.size=lib.size,prior.count=prior.count,dispersion=dispersion,weights=y$weights)
+	aveLogCPM(y$counts,lib.size=lib.size,prior.count=prior.count,
+	          dispersion=dispersion,weights=y$weights,lambda_reg=lambda_reg, alpha_reg=alpha_reg)
 }
 
-aveLogCPM.SummarizedExperiment <- function(y, normalized.lib.sizes=TRUE, prior.count=2, dispersion=NULL, ...)
+aveLogCPM.SummarizedExperiment <- function(y, normalized.lib.sizes=TRUE, prior.count=2, dispersion=NULL,
+                                           lambda_reg=0, alpha_reg=0, ...)
 #	Created 03 April 2020.  Last modified 03 April 2020.
 {
 	y <- SE2DGEList(y)
-	aveLogCPM.DGEList(y, normalized.lib.sizes=normalized.lib.sizes, prior.count=prior.count, dispersion=dispersion, ...)
+	aveLogCPM.DGEList(y, normalized.lib.sizes=normalized.lib.sizes, prior.count=prior.count,
+	                  dispersion=dispersion, lambda_reg=0, alpha_reg=0, ...)
 }
 
-aveLogCPM.DGEGLM <- function(y, prior.count=2, dispersion=NULL, ...)
+aveLogCPM.DGEGLM <- function(y, prior.count=2, dispersion=NULL, lambda_reg=0, alpha_reg=0, ...)
 #	aveLogCPM method for DGEGLM objects.
 #	Gordon Smyth
 #	Created 11 March 2013.  Last modified 24 Nov 2013.
@@ -38,10 +42,12 @@ aveLogCPM.DGEGLM <- function(y, prior.count=2, dispersion=NULL, ...)
 #	Dispersion supplied as argument over-rules value in object
 	if(is.null(dispersion)) dispersion <- y$dispersion
 
-	aveLogCPM(y$counts,offset=y$offset,prior.count=prior.count,dispersion=dispersion,weights=y$weights)
+	aveLogCPM(y$counts,offset=y$offset,prior.count=prior.count,dispersion=dispersion,
+	          weights=y$weights,lambda_reg=lambda_reg,alpha_reg=alpha_reg)
 }
 
-aveLogCPM.default <- function(y,lib.size=NULL,offset=NULL,prior.count=2,dispersion=NULL,weights=NULL, ...)
+aveLogCPM.default <- function(y,lib.size=NULL,offset=NULL,prior.count=2,
+                              dispersion=NULL,weights=NULL, lambda_reg=0, alpha_reg=0, ...)
 #	Compute average log2-cpm for each gene over all samples.
 #	This measure is designed to be used as the x-axis for all abundance-dependent trend analyses in edgeR.
 #	It is generally held fixed through an edgeR analysis.
@@ -81,7 +87,8 @@ aveLogCPM.default <- function(y,lib.size=NULL,offset=NULL,prior.count=2,dispersi
 	tol <- formals(mglmOneGroup)$tol
 
 #   Calling the C++ code
-	ab <- .Call(.cxx_ave_log_cpm, y, offset, prior.count, dispersion, weights, maxit, tol)
+	ab <- .Call(.cxx_ave_log_cpm, y, offset, prior.count, dispersion, weights,
+	            maxit, tol, lambda_reg, alpha_reg)
 	return(ab)
 }
 

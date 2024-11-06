@@ -10,7 +10,8 @@ designAsFactor <- function(design)
 	g
 }
 
-mglmOneWay <- function(y,design=NULL,group=NULL,dispersion=0,offset=0,weights=NULL,coef.start=NULL,maxit=50,tol=1e-10)
+mglmOneWay <- function(y,design=NULL,group=NULL,dispersion=0,offset=0,weights=NULL,
+                       coef.start=NULL,maxit=50,tol=1e-10,lambda_reg=0,alpha_reg=0)
 #	Fit multiple negative binomial glms with log link
 #	by Fisher scoring with
 #	only a single explanatory factor in the model
@@ -64,7 +65,8 @@ mglmOneWay <- function(y,design=NULL,group=NULL,dispersion=0,offset=0,weights=NU
 		j <- which(i==g)
 		beta[,g] <- mglmOneGroup(y[,j,drop=FALSE], dispersion=dispersion[,j,drop=FALSE],
 			offset=offset[,j,drop=FALSE], weights=weights[,j,drop=FALSE],
-			coef.start=coef.start[,g,drop=FALSE], maxit=maxit, tol=tol)
+			coef.start=coef.start[,g,drop=FALSE], maxit=maxit, tol=tol,
+			lambda_reg=lambda_reg, alpha_reg=alpha_reg)
 	}
 
 #	Reset -Inf values to finite value to simplify calculations downstream
